@@ -375,7 +375,13 @@
   #win-screen {
     display: none;
     text-align: center;
-    padding: 40px 20px;
+    padding: 50px 40px;
+    max-width: 600px;
+    margin: 40px auto;
+    background: rgba(3,6,14,0.65);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 8px;
     animation: fadeIn 0.8s ease;
   }
 
@@ -395,10 +401,18 @@
   }
 
   #win-screen p {
-    color: var(--silver);
+    color: #c8c0b0;
     font-style: italic;
     font-size: 1.1rem;
     margin-bottom: 30px;
+  }
+
+  #win-journey {
+    color: #b0a898;
+    font-style: italic;
+    font-size: 0.9rem;
+    margin-bottom: 30px;
+    line-height: 1.8;
   }
 
   .play-again-btn {
@@ -805,9 +819,9 @@ async function newGame() {
     );
     state.maxHops = maxHops;
     renderUI();
-    showFeedback('neutral', flavour, '');
+    showFeedback('neutral', flavour, `✦ ${state.maxHops} bridges`);
   } catch (e) {
-    document.getElementById('feedback-box').classList.remove('visible');
+    showFeedback('neutral', 'The archipelago grants you seven bridges. May your arguments be strong.', '✦ 7 bridges');
   }
 
   document.getElementById('submit-btn').disabled = false;
@@ -933,10 +947,12 @@ async function submitConnection() {
   showFeedback('neutral', '<span class="thinking">The archipelago considers your argument…</span>', '');
 
   try {
+    const visitedNames = state.journey.map(k => ISLANDS[k]?.name || k);
     const result = await judgeConnection(
       ISLANDS[state.currentIsland].name,
       text,
-      ISLANDS[state.destination].name
+      ISLANDS[state.destination].name,
+      visitedNames
     );
 
     state.isLoading = false;
@@ -978,19 +994,25 @@ async function submitConnection() {
   }
 }
 
-async function judgeConnection(fromIsland, playerText, destinationIsland) {
+async function judgeConnection(fromIsland, playerText, destinationIsland, visitedIslands) {
   const islandNames = ISLAND_KEYS.map(k => ISLANDS[k].name);
+  const currentIslandData = Object.values(ISLANDS).find(i => i.name === fromIsland);
+  const isUnknownIsland = currentIslandData && !currentIslandData.img;
+  const fromDesc = isUnknownIsland ? ` (a conceptual island: "${currentIslandData.desc}")` : '';
 
-  const prompt = `You are the ancient judge of the Concept Archipelago. A traveler is trying to reach the island of "${destinationIsland}" and is currently on the island of "${fromIsland}".
+  const prompt = `You are the ancient judge of the Concept Archipelago. A traveler is trying to reach the island of "${destinationIsland}" and is currently on the island of "${fromIsland}"${fromDesc}.
 
 They have made this argument to bridge to a new island:
 "${playerText}"
+
+Islands already visited (do NOT send them here again): ${visitedIslands.join(', ')}
 
 Your task:
 1. Judge the intellectual quality and creativity of this connection (1-10)
 2. Determine which island concept they have most convincingly connected TO based on their argument. This can be any conceptual domain - it does NOT have to be one of the fixed islands. Be generous and creative in interpretation.
 3. HOWEVER: if their argument genuinely connects well to "${destinationIsland}", send them there.
-4. If their argument is weak, still move them somewhere, but to a less ideal island (perhaps a tangent of what they described).
+4. If their argument is weak, still move them somewhere new, but to a less ideal island (perhaps a tangent of what they described).
+5. NEVER send the traveler to an island they have already visited.
 
 Available named islands: ${islandNames.join(', ')}
 
@@ -1086,7 +1108,7 @@ function showWin() {
     `You crossed ${state.hopsUsed} bridge${state.hopsUsed !== 1 ? 's' : ''} to reach ${ISLANDS[state.destination].name}. The archipelago remembers your path.`;
 
   const jDiv = document.getElementById('win-journey');
-  jDiv.innerHTML = `<div style="font-style:italic; color:var(--dim); font-size:0.9rem;">${journeyNames}</div>`;
+  jDiv.textContent = journeyNames;
 }
 
 function showLoss() {
